@@ -1,0 +1,54 @@
+---
+---
+
+<form id="loginForm">
+  <input type="email" id="email" placeholder="Email" required>
+  <input type="password" id="password" placeholder="Password" required>
+  <button type="submit">Login</button>
+</form>
+<button id="googleLogin">Login with Google</button>
+<button id="facebookLogin">Login with Facebook</button>
+
+<script>
+  const loginForm = document.getElementById('loginForm');
+  const googleLogin = document.getElementById('googleLogin');
+  const facebookLogin = document.getElementById('facebookLogin');
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          'username': email,
+          'password': password,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        localStorage.setItem('token', data.access_token);
+        alert('Login successful!');
+      } else {
+        alert(data.detail);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  });
+
+  googleLogin.addEventListener('click', () => {
+    window.location.href = 'http://localhost:8000/api/auth/google';
+  });
+
+  facebookLogin.addEventListener('click', () => {
+    window.location.href = 'http://localhost:8000/api/auth/facebook';
+  });
+</script>
+

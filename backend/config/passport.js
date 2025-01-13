@@ -1,46 +1,63 @@
-import passport from 'passport';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { Strategy as FacebookStrategy } from 'passport-facebook';
-import User from '../models/User.js';
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
+const pool = require('./db');
 
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: '/api/auth/google/callback'
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    let user = await User.findOne({ googleId: profile.id });
-    if (!user) {
-      user = new User({
-        email: profile.emails[0].value,
-        googleId: profile.id,
-      });
-      await user.save();
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
+// Google Strategy
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "http://www.example.com/auth/google/callback",
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const query = `
+          INSERT INTO users (username, email)
+          VALUES ($1, $2)
+          ON CONFLICT (email) DO NOTHING
+        `;
+        await pool.query(query, [profile.displayName, profile.emails[0].value]);
+        return done(null, profile);
+      } catch (err) {
+        return done(err, null);
+      }
     }
-    done(null, user);
-  } catch (error) {
-    done(error, null);
-  }
-}));
+  )
+);
 
-passport.use(new FacebookStrategy({
-  clientID: process.env.FACEBOOK_APP_ID,
-  clientSecret: process.env.FACEBOOK_APP_SECRET,
-  callbackURL: '/api/auth/facebook/callback',
-  profileFields: ['id', 'emails']
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    let user = await User.findOne({ facebookId: profile.id });
-    if (!user) {
-      user = new User({
-        email: profile.emails[0].value,
-        facebookId: profile.id,
-      });
-      await user.save();
+// Facebook Strategy
+passport.use(
+  new FacebookStrategy(
+    {
+      clientID: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      callbackURL: process.env.FACEBOOK_CALLBACK_URL,
+      profileFields: ['id', 'displayName', 'email'],
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const query = `
+          INSERT INTO users (username, email)
+          VALUES ($1, $2)
+          ON CONFLICT (email) DO NOTHING
+        `;
+        await pool.query(query, [profile.displayName, profile.emails[0].value]);
+        return done(null, profile);
+      } catch (err) {
+        return done(err, null);
+      }
     }
-    done(null, user);
-  } catch (error) {
-    done(error, null);
-  }
-}));
+  )
+);
 
+module.exports = passport;
